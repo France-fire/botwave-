@@ -1,1 +1,1 @@
-worker: python bot_wave.py
+worker: python bot.py
