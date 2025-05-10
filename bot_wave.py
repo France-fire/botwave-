@@ -1,7 +1,8 @@
 import json
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
-
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 # Ton token et ID admin
 TOKEN = "8151164658:AAGcGdTauzNoozJZRO60htExQs2kiKBJmwE"
 ADMIN_ID = 6406991534  # remplace par ton vrai ID Telegram
