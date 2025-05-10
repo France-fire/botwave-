@@ -1,10 +1,32 @@
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 import json
+import requests
 
 # --- Config ---
 TOKEN = "8151164658:AAGcGdTauzNoozJZRO60htExQs2kiKBJmwE"
 ADMIN_ID = 6406991534
+DJAMO_EMAIL = "ton@email.com"
+DJAMO_PASSWORD = "ton_mot_de_passe"
+
+# --- Fonctions API Djamo ---
+def se_connecter_djamo():
+    url = "https://api.djamo.com/auth/login"  # À adapter
+    data = {"email": DJAMO_EMAIL, "password": DJAMO_PASSWORD}
+    response = requests.post(url, json=data)
+    response.raise_for_status()
+    return response.json()["token"]
+
+def envoyer_virement_djamo(token, destinataire, montant):
+    url = "https://api.djamo.com/transfer"  # À adapter
+    headers = {"Authorization": f"Bearer {token}"}
+    data = {
+        "receiver_identifier": destinataire,
+        "amount": montant
+    }
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    return response.json()
 
 # --- Utilitaires solde ---
 def lire_solde(user_id):
@@ -28,7 +50,7 @@ def mettre_a_jour_solde(user_id, montant):
     with open("soldes.json", "w") as f:
         json.dump(soldes, f)
 
-# --- Commandes ---
+# --- Commandes Telegram ---
 def start(update: Update, context: CallbackContext):
     update.message.reply_text("Bienvenue ! Utilise /solde pour voir ton solde.")
 
@@ -74,24 +96,38 @@ def retrait(update: Update, context: CallbackContext):
         update.message.reply_text("Fonds insuffisants.")
         return
 
-    mettre_a_jour_solde(user_id, -montant)
-
     try:
         with open("djamo_ids.json", "r") as f:
             ids = json.load(f)
-        identifiant_djamo = ids.get(user_id, "Non fourni")
+        identifiant_djamo = ids.get(user_id, None)
     except:
-        identifiant_djamo = "Non fourni"
+        identifiant_djamo = None
 
-    update.message.reply_text(f"Demande de retrait de {montant} FCFA envoyée.")
+    if not identifiant_djamo:
+        update.message.reply_text("Tu dois d'abord enregistrer ton identifiant Djamo avec /setdjamo.")
+        return
 
-    context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=(
-            f"Demande de retrait de {montant} FCFA par @{username} (ID: {user_id})\n"
-            f"Djamo : {identifiant_djamo}"
+    # Déduire le solde
+    mettre_a_jour_solde(user_id, -montant)
+    update.message.reply_text("Traitement de ton retrait en cours...")
+
+    # Envoi automatique via Djamo
+    try:
+        token = se_connecter_djamo()
+        resultat = envoyer_virement_djamo(token, identifiant_djamo, montant)
+
+        context.bot.send_message(
+            chat_id=user_id,
+            text=f"Ton retrait de {montant} FCFA a été effectué via Djamo."
         )
-    )
+        context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"Retrait automatique de {montant} FCFA effectué pour {username} ({user_id}) vers {identifiant_djamo}."
+        )
+    except Exception as e:
+        context.bot.send_message(chat_id=user_id, text=f"Erreur lors de l'envoi via Djamo : {e}")
+        context.bot.send_message(chat_id=ADMIN_ID, text=f"Erreur lors du retrait de {username} : {e}")
+        mettre_a_jour_solde(user_id, montant)  # Recréditer en cas d'échec
 
 # --- Main ---
 def main():
