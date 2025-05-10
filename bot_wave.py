@@ -1,43 +1,47 @@
 import json
-from telegram.ext import Updater, CommandHandler  # et les autres imports que tu utilises
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
-import json
+
+# Ton token et ID admin
+TOKEN = "8151164658:AAGcGdTauzNoozJZRO60htExQs2kiKBJmwE"
+ADMIN_ID = 6406991534  # remplace par ton vrai ID Telegram
+
+# Lire le solde d'un utilisateur
 def lire_solde(user_id):
-    with open('soldes.json', 'r') as file:
-        soldes = json.load(file)
+    try:
+        with open('soldes.json', 'r') as file:
+            soldes = json.load(file)
+    except:
+        soldes = {}
     return soldes.get(str(user_id), 0)
 
+# Mettre à jour le solde d'un utilisateur
 def mettre_a_jour_solde(user_id, montant):
-    with open('soldes.json', 'r') as file:
-        soldes = json.load(file)
+    try:
+        with open('soldes.json', 'r') as file:
+            soldes = json.load(file)
+    except:
+        soldes = {}
 
     user_id = str(user_id)
     soldes[user_id] = soldes.get(user_id, 0) + montant
 
     with open('soldes.json', 'w') as file:
         json.dump(soldes, file)
-# Remplace par ton propre token
-TOKEN = "8151164658:AAGcGdTauzNoozJZRO60htExQs2kiKBJmwE"
-ADMIN_ID = 6406991534  # remplace par TON VRAI ID TELEGRAM
 
+# Commande /start
 def start(update: Update, context: CallbackContext):
     update.message.reply_text("Bienvenue ! Utilise /solde pour voir ton solde.")
 
+# Commande /solde
 def solde(update: Update, context: CallbackContext):
-    user_id = str(update.effective_user.id)
-
-    try:
-        with open("soldes.json", "r") as f:
-            soldes = json.load(f)
-    except:
-        soldes = {}
-
-    montant = soldes.get(user_id, 0)
+    user_id = update.effective_user.id
+    montant = lire_solde(user_id)
     update.message.reply_text(f"Ton solde est de {montant} FCFA.")
 
+# Commande /retrait
 def retrait(update: Update, context: CallbackContext):
-    user_id = str(update.effective_user.id)
+    user_id = update.effective_user.id
     username = update.effective_user.username or "Inconnu"
 
     if len(context.args) != 1 or not context.args[0].isdigit():
@@ -45,23 +49,13 @@ def retrait(update: Update, context: CallbackContext):
         return
 
     montant = int(context.args[0])
+    solde_actuel = lire_solde(user_id)
 
-    try:
-        with open("soldes.json", "r") as f:
-            soldes = json.load(f)
-    except:
-        soldes = {}
-
-    solde = soldes.get(user_id, 0)
-
-    if montant > solde:
+    if montant > solde_actuel:
         update.message.reply_text("Fonds insuffisants.")
         return
 
-    soldes[user_id] -= montant
-
-    with open("soldes.json", "w") as f:
-        json.dump(soldes, f)
+    mettre_a_jour_solde(user_id, -montant)
 
     update.message.reply_text(f"Demande de retrait de {montant} FCFA envoyée.")
 
@@ -70,6 +64,7 @@ def retrait(update: Update, context: CallbackContext):
         text=f"Demande de retrait de {montant} FCFA par @{username} (ID: {user_id})"
     )
 
+# Lancement du bot
 def main():
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
