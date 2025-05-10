@@ -1,8 +1,22 @@
-
+import json
+from telegram.ext import Updater, CommandHandler  # et les autres imports que tu utilises
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 import json
+def lire_solde(user_id):
+    with open('soldes.json', 'r') as file:
+        soldes = json.load(file)
+    return soldes.get(str(user_id), 0)
 
+def mettre_a_jour_solde(user_id, montant):
+    with open('soldes.json', 'r') as file:
+        soldes = json.load(file)
+
+    user_id = str(user_id)
+    soldes[user_id] = soldes.get(user_id, 0) + montant
+
+    with open('soldes.json', 'w') as file:
+        json.dump(soldes, file)
 # Remplace par ton propre token
 TOKEN = "8151164658:AAGcGdTauzNoozJZRO60htExQs2kiKBJmwE"
 ADMIN_ID = 6406991534  # remplace par TON VRAI ID TELEGRAM
